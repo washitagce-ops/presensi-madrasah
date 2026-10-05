@@ -8,8 +8,8 @@
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .camera-wrapper { position: relative; width: 100%; max-width: 500px; margin: 0 auto; overflow: hidden; border-radius: 16px; border: 3px solid #0d6efd; background: #000; }
-    video { width: 100%; height: auto; display: block; transform: scaleX(-1); }
+    .camera-wrapper { position: relative; width: 100%; max-width: 500px; margin: 0 auto; overflow: hidden; border-radius: 16px; border: 3px solid #0d6efd; background: #000; min-height: 250px; }
+    video, img { width: 100%; height: auto; display: block; }
     .status-badge { position: absolute; top: 12px; left: 12px; z-index: 10; font-size: 0.85rem; }
     .scan-overlay { position: absolute; bottom: 12px; left: 12px; right: 12px; z-index: 10; }
   </style>
@@ -21,35 +21,37 @@
     <div class="col-md-8 col-lg-6 text-center">
       
       <h4 class="mb-1 text-primary">PRESENSI PIKET MADRASAH</h4>
-      <p class="text-muted small mb-2">Arahkan kamera HP ke wajah siswa untuk memindai</p>
+      <p class="text-muted small mb-3">Pindai atau ambil foto wajah siswa untuk pencatatan presensi</p>
 
-      <!-- Area Tombol Minta Izin Kamera Manual untuk Iframe Google Sites -->
-      <div id="permissionNotice" class="alert alert-warning p-2 mb-3 small" style="display: block;">
-        <strong>Kamera Belum Aktif?</strong><br>
-        Browser di Google Sites membutuhkan ketukan manual untuk mengizinkan kamera.<br>
-        <button id="btnStartCamera" class="btn btn-primary btn-sm mt-2 fw-bold" onclick="startCameraManual()">
-          ?? Aktifkan Kamera HP
-        </button>
+      <!-- Tombol Ambil Foto Kamera Native HP (Solusi Bebas Pemblokiran Google Sites) -->
+      <div class="mb-3">
+        <label for="nativeCameraInput" class="btn btn-success btn-lg w-100 fw-bold py-3 shadow">
+          📸 Ambil Foto Wajah Siswa
+        </label>
+        <input type="file" id="nativeCameraInput" accept="image/*" capture="user" style="display: none;" onchange="handleImageCapture(event)">
+        <div class="form-text text-light small mt-1">Gunakan tombol di atas jika stream kamera diblokir oleh Google Sites.</div>
       </div>
 
-      <!-- Container Kamera -->
+      <!-- Container Tampilan Foto / Preview -->
       <div class="camera-wrapper mb-3">
         <span id="cameraStatus" class="badge bg-warning text-dark status-badge">Memuat Model AI...</span>
-        <video id="video" autoplay playsinline muted></video>
+        
+        <!-- Elemen Gambar untuk Menampilkan Foto Hasil Jepretan -->
+        <img id="imagePreview" src="data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23212529%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EPratinjau%20Foto%20Siswa%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Preview Foto">
         
         <div class="scan-overlay">
           <div id="scanResult" class="p-2 rounded bg-dark bg-opacity-75 text-white border border-secondary small">
-            Menunggu kamera diaktifkan...
+            Klik tombol hijau di atas untuk mengambil foto.
           </div>
         </div>
       </div>
 
-      <!-- Sinkronisasi Data -->
+      <!-- Tombol Sinkronisasi Data -->
       <button id="btnReload" class="btn btn-outline-light btn-sm mb-3" onclick="loadStudentData()">
-        ?? Sinkronkan Data Siswa
+        🔄 Sinkronkan Data Siswa
       </button>
 
-      <!-- Riwayat Scan -->
+      <!-- Tabel Riwayat Presensi Sesi Ini -->
       <div class="card bg-dark border-secondary text-start">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center py-2">
           <span class="fw-bold small">Riwayat Scan Terakhir</span>
@@ -67,19 +69,17 @@
 </div>
 
 <script>
+  // CONFIGURATION: Ganti dengan URL Deployment Web App Google Apps Script Anda
   const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwRT4Bw2Z_d-P0TmxGSAZHSV3xncTjj9eC5sY8vo43apsWw-j-CUA6LT8IAUzm0l2HkQg/exec";
   const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
 
-  const video = document.getElementById("video");
   const cameraStatus = document.getElementById("cameraStatus");
   const scanResult = document.getElementById("scanResult");
   const logList = document.getElementById("logList");
+  const imagePreview = document.getElementById("imagePreview");
 
   let faceMatcher = null;
   let studentDatabase = [];
-  let isProcessing = false;
-  let lastScannedNis = "";
-  let lastScanTime = 0;
   let totalScanCount = 0;
 
   // 1. Memuat Model AI
@@ -90,10 +90,8 @@
         faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
         faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
       ]);
-      cameraStatus.innerText = "Model AI Siap. Mengunduh Data Siswa...";
+      cameraStatus.innerText = "Model AI Siap. Mengunduh Data...";
       await loadStudentData();
-      // Mencoba membuka kamera secara otomatis
-      startCameraManual();
     } catch (err) {
       updateStatus("danger", "Gagal memuat model AI: " + err.message);
     }
@@ -114,11 +112,9 @@
 
         if (labeledDescriptors.length > 0) {
           faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.55);
-          cameraStatus.className = "badge bg-success status-badge";
-          cameraStatus.innerText = `${labeledDescriptors.length} Data Siswa Siap`;
+          updateStatus("success", `${labeledDescriptors.length} Data Siswa Siap`);
         } else {
-          cameraStatus.className = "badge bg-danger status-badge";
-          cameraStatus.innerText = "Belum Ada Siswa Terdaftar";
+          updateStatus("danger", "Belum Ada Siswa Terdaftar");
         }
       }
     } catch (err) {
@@ -126,85 +122,48 @@
     }
   }
 
-  // 3. Fungsi Aktivasi Kamera HP
-  async function startCameraManual() {
-    const btn = document.getElementById("btnStartCamera");
-    btn.disabled = true;
-    btn.innerText = "Memproses Kamera...";
+  // 3. Memproses Foto Wajah yang Diambil Menggunakan Kamera Native HP
+  async function handleImageCapture(event) {
+    const file = event.target.files[0];
+    if (!file) return;
 
-    const constraints = {
-      video: {
-        facingMode: { ideal: "environment" }, // Prioritas kamera belakang HP piket
-        width: { ideal: 640 },
-        height: { ideal: 480 }
-      },
-      audio: false
-    };
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      video.srcObject = stream;
-      video.addEventListener("play", onPlay);
-      document.getElementById("permissionNotice").style.display = "none";
-      updateStatus("success", "Kamera Aktif & Siap");
-      scanResult.innerText = "Arahkan wajah siswa ke kamera";
-    } catch (err) {
-      console.warn("Kamera belakang gagal, mencoba kamera depan:", err);
-      // Fallback ke kamera depan jika kamera belakang tidak terdeteksi
-      try {
-        const streamFront = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        video.srcObject = streamFront;
-        video.addEventListener("play", onPlay);
-        document.getElementById("permissionNotice").style.display = "none";
-        updateStatus("success", "Kamera Depan Aktif");
-      } catch (err2) {
-        btn.disabled = false;
-        btn.innerText = "?? Coba Aktifkan Kamera Lagi";
-        updateStatus("danger", "Izin Kamera Ditolak / Diblokir");
-        scanResult.innerHTML = `<span class="text-danger">Akses kamera diblokir oleh Google Sites/Browser. Pastikan izin kamera pada browser HP diubah ke 'Allow'.</span>`;
-      }
-    }
-  }
-
-  // 4. Deteksi Wajah
-  async function onPlay() {
-    if (video.paused || video.ended || !faceMatcher) {
-      setTimeout(() => onPlay(), 500);
+    if (!faceMatcher) {
+      alert("Data siswa belum selesai diunduh. Mohon tunggu sebentar.");
       return;
     }
 
-    if (!isProcessing) {
-      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+    // Tampilkan Pratinjau Gambar pada Layar
+    const imgUrl = URL.createObjectURL(file);
+    imagePreview.src = imgUrl;
 
-      if (detection) {
-        const match = faceMatcher.findBestMatch(detection.descriptor);
-        
-        if (match.label !== "unknown") {
-          const nis = match.label;
-          const now = Date.now();
+    scanResult.innerHTML = `<span class="text-info">⌛ Menganalisis wajah siswa...</span>`;
 
-          if (nis !== lastScannedNis || (now - lastScanTime) > 10000) {
-            isProcessing = true;
-            lastScannedNis = nis;
-            lastScanTime = now;
-            await processAttendance(nis);
-            isProcessing = false;
-          }
-        } else {
-          scanResult.innerHTML = `<span class="text-warning">?? Wajah tidak dikenali</span>`;
-        }
-      }
+    // Buat Elemen HTML Image untuk Proses Deteksi AI
+    const img = await faceapi.bufferToImage(file);
+    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+
+    if (!detection) {
+      scanResult.innerHTML = `<span class="text-warning">⚠️ Wajah tidak terdeteksi! Ambil foto ulang dari jarak lebih dekat.</span>`;
+      return;
     }
 
-    setTimeout(() => onPlay(), 200);
+    // Mencocokkan Vektor Wajah Foto dengan Database
+    const match = faceMatcher.findBestMatch(detection.descriptor);
+
+    if (match.label !== "unknown") {
+      const nis = match.label;
+      await processAttendance(nis);
+    } else {
+      scanResult.innerHTML = `<span class="text-danger">❌ Wajah tidak cocok dengan data siswa mana pun.</span>`;
+    }
   }
 
-  // 5. Kirim Presensi ke Apps Script
+  // 4. Mengirim Data Presensi ke Backend Apps Script
   async function processAttendance(nis) {
     const student = studentDatabase.find(s => s.nis.toString() === nis);
     if (!student) return;
 
-    scanResult.innerHTML = `<span class="text-info">? Mengirim presensi: <b>${student.nama}</b>...</span>`;
+    scanResult.innerHTML = `<span class="text-info">⌛ Mengirim presensi: <b>${student.nama}</b>...</span>`;
 
     const payload = {
       action: "presensi",
@@ -223,13 +182,13 @@
       const res = await response.json();
 
       if (res.status === "success") {
-        scanResult.innerHTML = `<span class="text-success">? Berhasil: <b>${student.nama}</b> (${student.kelas})</span>`;
+        scanResult.innerHTML = `<span class="text-success">✅ Berhasil: <b>${student.nama}</b> (${student.kelas})</span>`;
         addLogSuccess(student.nama, student.kelas);
       } else {
-        scanResult.innerHTML = `<span class="text-danger">? Gagal: ${res.message}</span>`;
+        scanResult.innerHTML = `<span class="text-danger">❌ Gagal: ${res.message}</span>`;
       }
     } catch (err) {
-      scanResult.innerHTML = `<span class="text-danger">? Error Koneksi: ${err.message}</span>`;
+      scanResult.innerHTML = `<span class="text-danger">❌ Error Koneksi: ${err.message}</span>`;
     }
   }
 
