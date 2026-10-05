@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scan Presensi Wajah - Petugas Piket</title>
+  <!-- CSS Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Pustaka face-api.js -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+  <style>
+    body { background-color: #121212; color: #ffffff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    .camera-wrapper { position: relative; width: 100%; max-width: 500px; margin: 0 auto; overflow: hidden; border-radius: 16px; border: 3px solid #0d6efd; background: #000; }
+    video { width: 100%; height: auto; display: block; transform: scaleX(-1); }
+    canvas { position: absolute; top: 0; left: 0; }
+    .status-badge { position: absolute; top: 12px; left: 12px; z-index: 10; font-size: 0.85rem; }
+    .scan-overlay { position: absolute; bottom: 12px; left: 12px; right: 12px; z-index: 10; }
+  </style>
+</head>
+<body>
+
+<div class="container py-3">
+  <div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6 text-center">
+      
+      <h4 class="mb-1 text-primary">PRESENSI PIKET MADRASAH</h4>
+      <p class="text-muted small mb-3">Arahkan kamera HP ke wajah siswa untuk memindai</p>
+
+      <!-- Container Kamera -->
+      <div class="camera-wrapper mb-3">
+        <span id="cameraStatus" class="badge bg-warning text-dark status-badge">Memuat Model AI...</span>
+        <video id="video" autoplay playsinline muted></video>
+        
+        <!-- Baris Hasil Deteksi Terakhir -->
+        <div class="scan-overlay">
+          <div id="scanResult" class="p-2 rounded bg-dark bg-opacity-75 text-white border border-secondary small">
+            Menunggu kamera aktif...
+          </div>
+        </div>
+      </div>
+
+      <!-- Tombol Muat Ulang Data Siswa -->
+      <button id="btnReload" class="btn btn-outline-light btn-sm mb-3" onclick="loadStudentData()">
+        🔄 Sinkronkan Data Siswa
+      </button>
+
+      <!-- Tabel Riwayat Scan Sesi Ini -->
+      <div class="card bg-dark border-secondary text-start">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center py-2">
+          <span class="fw-bold small">Riwayat Scan Terakhir</span>
+          <span id="totalScan" class="badge bg-success">0 Berhasil</span>
+        </div>
+        <div class="card-body p-0">
+          <ul id="logList" class="list-group list-group-flush bg-dark rounded-bottom small">
+            <li class="list-group-item bg-dark text-muted text-center py-3">Belum ada aktivitas presensi</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // CONFIGURATION: Ganti dengan URL Deployment Web App Google Apps Script dari Tahap 1
+  const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwRT4Bw2Z_d-P0TmxGSAZHSV3xncTjj9eC5sY8vo43apsWw-j-CUA6LT8IAUzm0l2HkQg/exec";
+  const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
+
+  const video = document.getElementById("video");
+  const cameraStatus = document.getElementById("cameraStatus");
+  const scanResult = document.getElementById("scanResult");
+  const logList = document.getElementById("logList");
+
+  let faceMatcher = null;
+  let studentDatabase = [];
+  let isProcessing = false;
+  let lastScannedNis = "";
+  let lastScanTime = 0;
+  let totalScanCount = 0;
+
+  // 1. Memuat Model AI face-api.js
+  async function init() {
+    try {
+      await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+      ]);
+      cameraStatus.innerText = "Model AI Siap. Mengunduh Data Siswa...";
+      await loadStudentData();
+      startCamera();
+    } catch (err) {
+      updateStatus("danger", "Gagal memuat model AI: " + err.message);
+    }
+  }
+
+  // 2. Mengambil Data Siswa & Vector Wajah dari Google Sheets
+  async function loadStudentData() {
+    try {
+      const res = await fetch(GAS_WEB_APP_URL);
+      const json = await res.json();
+
+      if (json.status === "success" && json.data.length > 0) {
+        studentDatabase = json.data;
+        
+        const labeledDescriptors = studentDatabase
+          .filter(s => s.descriptors && s.descriptors.length === 128)
+          .map(s => new faceapi.LabeledFaceDescriptors(s.nis.toString(), [new Float32Array(s.descriptors)]));
+
+        if (labeledDescriptors.length > 0) {
+          // Threshold 0.55 untuk keseimbangan akurasi
+          faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.55);
+          cameraStatus.className = "badge bg-success status-badge";
+          cameraStatus.innerText = `${labeledDescriptors.length} Data Siswa Siap`;
+        } else {
+          cameraStatus.className = "badge bg-danger status-badge";
+          cameraStatus.innerText = "Belum Ada Siswa Terdaftar";
+        }
+      }
+    } catch (err) {
+      console.error("Gagal memuat data siswa:", err);
+    }
+  }
+
+  // 3. Mengaktifkan Kamera Depan / Belakang HP
+  function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false })
+      .then(stream => {
+        video.srcObject = stream;
+        video.addEventListener("play", onPlay);
+      })
+      .catch(() => {
+        // Fallback ke kamera depan jika kamera belakang tidak ditemukan
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
+          .then(stream => {
+            video.srcObject = stream;
+            video.addEventListener("play", onPlay);
+          });
+      });
+  }
+
+  // 4. Loop Deteksi & Pemindaian Wajah Kontinyu
+  async function onPlay() {
+    if (video.paused || video.ended || !faceMatcher) {
+      setTimeout(() => onPlay(), 500);
+      return;
+    }
+
+    if (!isProcessing) {
+      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+      if (detection) {
+        const match = faceMatcher.findBestMatch(detection.descriptor);
+        
+        if (match.label !== "unknown") {
+          const nis = match.label;
+          const now = Date.now();
+
+          // Cooldown 10 detik per siswa agar tidak terscan berulang
+          if (nis !== lastScannedNis || (now - lastScanTime) > 10000) {
+            isProcessing = true;
+            lastScannedNis = nis;
+            lastScanTime = now;
+            await processAttendance(nis);
+            isProcessing = false;
+          }
+        } else {
+          scanResult.innerHTML = `<span class="text-warning">⚠️ Wajah tidak dikenali</span>`;
+        }
+      }
+    }
+
+    setTimeout(() => onPlay(), 200); // Interval scan 200ms
+  }
+
+  // 5. Mengirim Data Presensi ke Backend Apps Script
+  async function processAttendance(nis) {
+    const student = studentDatabase.find(s => s.nis.toString() === nis);
+    if (!student) return;
+
+    scanResult.innerHTML = `<span class="text-info">⌛ Mengirim presensi: <b>${student.nama}</b>...</span>`;
+
+    const payload = {
+      action: "presensi",
+      nis: student.nis,
+      nama: student.nama,
+      kelas: student.kelas,
+      emailOrtu: student.emailOrtu,
+      waOrtu: student.waOrtu
+    };
+
+    try {
+      const response = await fetch(GAS_WEB_APP_URL, {
+        method: "POST",
+        body: JSON.stringify(payload)
+      });
+      const res = await response.json();
+
+      if (res.status === "success") {
+        scanResult.innerHTML = `<span class="text-success">✅ Berhasil: <b>${student.nama}</b> (${student.kelas})</span>`;
+        addLogSuccess(student.nama, student.kelas);
+      } else {
+        scanResult.innerHTML = `<span class="text-danger">❌ Gagal: ${res.message}</span>`;
+      }
+    } catch (err) {
+      scanResult.innerHTML = `<span class="text-danger">❌ Error Koneksi: ${err.message}</span>`;
+    }
+  }
+
+  // 6. Menambahkan Catatan ke Riwayat Sesi Local
+  function addLogSuccess(nama, kelas) {
+    const timeStr = new Date().toLocaleTimeString("id-ID", { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    if (totalScanCount === 0) logList.innerHTML = "";
+    totalScanCount++;
+
+    document.getElementById("totalScan").innerText = `${totalScanCount} Berhasil`;
+
+    const li = document.createElement("li");
+    li.className = "list-group-item bg-dark text-white border-secondary d-flex justify-content-between align-items-center py-2";
+    li.innerHTML = `<div><b>${nama}</b> <small class="text-muted">(${kelas})</small></div><span class="badge bg-primary">${timeStr} WITA</span>`;
+    logList.insertBefore(li, logList.firstChild);
+  }
+
+  function updateStatus(type, text) {
+    cameraStatus.className = `badge bg-${type} status-badge`;
+    cameraStatus.innerText = text;
+  }
+
+  window.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
