@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pendaftaran Wajah Siswa - Presensi Madrasah</title>
-  <!-- CSS Bootstrap 5 -->
+  <!-- Bootstrap 5 CSS -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <!-- Pustaka face-api.js -->
   <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <style>
     body { background-color: #f8f9fa; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    .camera-container { position: relative; width: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; border-radius: 12px; background: #000; min-height: 240px; }
-    video, img { width: 100%; height: auto; display: block; }
+    .camera-container { position: relative; width: 100%; max-width: 480px; margin: 0 auto; overflow: hidden; border-radius: 12px; background: #212529; min-height: 250px; }
+    img { width: 100%; height: auto; display: block; object-fit: cover; }
     .status-badge { position: absolute; top: 10px; left: 10px; z-index: 10; }
   </style>
 </head>
@@ -27,52 +27,52 @@
         </div>
         <div class="card-body p-4">
           
-          <!-- Tombol Ambil Foto Kamera Native HP (Bebas Pemblokiran Google Sites) -->
+          <!-- Tombol Buka Kamera Native HP Android -->
           <div class="mb-3">
-            <label for="nativeCameraInput" class="btn btn-success w-100 py-2 fw-bold shadow-sm">
-              📸 Ambil Foto Wajah Siswa (Kamera HP)
+            <label for="nativeCameraInput" class="btn btn-success btn-lg w-100 py-3 fw-bold shadow-sm">
+              📸 Ambil Foto Wajah Siswa
             </label>
+            <!-- Input Kamera Native HP -->
             <input type="file" id="nativeCameraInput" accept="image/*" capture="user" style="display: none;" onchange="handleImageEnrollment(event)">
-            <div class="form-text text-center text-muted small">Gunakan tombol di atas jika stream kamera langsung di bawah tidak aktif.</div>
+            <div class="form-text text-center text-muted small mt-2">Ketuk tombol hijau di atas untuk membuka kamera HP Android.</div>
           </div>
 
-          <!-- Area Kamera / Pratinjau Gambar -->
-          <div class="camera-container mb-3 text-center">
+          <!-- Pratinjau Gambar -->
+          <div class="camera-container mb-3 text-center d-flex align-items-center justify-content-center">
             <span id="cameraStatus" class="badge bg-warning text-dark status-badge">Memuat Model AI...</span>
-            <video id="video" autoplay playsinline muted style="display: none;"></video>
-            <img id="imagePreview" src="data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23212529%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EPratinjau%20Foto%20Siswa%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Pratinjau Foto">
+            <img id="imagePreview" src="data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23212529%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EFoto%20Siswa%20Akan%20Tampil%20Di%20Sini%3C%2Ftext%3E%3C%2Fsvg%3E" alt="Pratinjau Foto">
           </div>
 
-          <!-- Form Input Data Siswa -->
+          <!-- Form Data Siswa -->
           <form id="enrollForm">
             <div class="mb-3">
-              <label for="nis" class="form-label font-weight-bold">NIS / NISN</label>
+              <label for="nis" class="form-label fw-bold">NIS / NISN</label>
               <input type="number" class="form-control" id="nis" required placeholder="Masukkan NIS siswa">
             </div>
             
             <div class="mb-3">
-              <label for="nama" class="form-label">Nama Lengkap Siswa</label>
+              <label for="nama" class="form-label fw-bold">Nama Lengkap Siswa</label>
               <input type="text" class="form-control" id="nama" required placeholder="Masukkan nama lengkap">
             </div>
 
             <div class="mb-3">
-              <label for="kelas" class="form-label">Kelas</label>
+              <label for="kelas" class="form-label fw-bold">Kelas</label>
               <input type="text" class="form-control" id="kelas" required placeholder="Contoh: VII-A, X-IPA-1">
             </div>
 
             <div class="mb-3">
-              <label for="emailOrtu" class="form-label">Email Orang Tua</label>
+              <label for="emailOrtu" class="form-label fw-bold">Email Orang Tua</label>
               <input type="email" class="form-control" id="emailOrtu" required placeholder="email@gmail.com">
             </div>
 
             <div class="mb-3">
-              <label for="waOrtu" class="form-label">Nomor WhatsApp Orang Tua</label>
+              <label for="waOrtu" class="form-label fw-bold">Nomor WhatsApp Orang Tua</label>
               <input type="tel" class="form-control" id="waOrtu" required placeholder="628123456789">
               <div class="form-text">Gunakan format kode negara (contoh: 628123456789).</div>
             </div>
 
-            <button type="submit" id="btnSubmit" class="btn btn-primary w-100 py-2" disabled>
-              Proses Pendaftaran Wajah
+            <button type="submit" id="btnSubmit" class="btn btn-primary w-100 py-2 fw-bold" disabled>
+              Simpan & Daftarkan Wajah
             </button>
           </form>
 
@@ -86,11 +86,10 @@
 </div>
 
 <script>
-  // CONFIGURATION: Ganti dengan URL Web App Google Apps Script dari Tahap 1
+  // CONFIGURATION: Ganti dengan URL Deployment Web App Google Apps Script Anda
   const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwRT4Bw2Z_d-P0TmxGSAZHSV3xncTjj9eC5sY8vo43apsWw-j-CUA6LT8IAUzm0l2HkQg/exec";
   const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
 
-  const video = document.getElementById("video");
   const imagePreview = document.getElementById("imagePreview");
   const cameraStatus = document.getElementById("cameraStatus");
   const btnSubmit = document.getElementById("btnSubmit");
@@ -109,77 +108,62 @@
       cameraStatus.className = "badge bg-success status-badge";
       cameraStatus.innerText = "Model AI Siap";
       btnSubmit.disabled = false;
-      tryStartLiveCamera();
     } catch (err) {
       showAlert("danger", "Gagal memuat model AI: " + err.message);
     }
   }
 
-  // 2. Mencoba Membuka Stream Kamera Langsung (Optional Fallback)
-  function tryStartLiveCamera() {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false })
-      .then(stream => {
-        video.srcObject = stream;
-        video.style.display = "block";
-        imagePreview.style.display = "none";
-        cameraStatus.innerText = "Kamera Langsung Aktif";
-      })
-      .catch(() => {
-        // Jika stream diblokir iframe Google Sites, biarkan tetap menggunakan mode Ambil Foto Native
-        video.style.display = "none";
-        imagePreview.style.display = "block";
-        cameraStatus.innerText = "Mode Ambil Foto Aktif";
-      });
-  }
-
-  // 3. Menangani Pengambilan Foto dari Kamera Native HP
-  async function handleImageEnrollment(event) {
+  // 2. Memproses Foto Wajah dari Kamera Native HP
+  function handleImageEnrollment(event) {
     const file = event.target.files[0];
     if (!file) return;
 
     btnSubmit.disabled = true;
-    showAlert("info", "Menganalisis wajah dari foto...");
+    showAlert("info", "Membaca foto dan menganalisis wajah...");
 
-    const imgUrl = URL.createObjectURL(file);
-    imagePreview.src = imgUrl;
-    imagePreview.style.display = "block";
-    video.style.display = "none";
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const imgDataUrl = e.target.result;
+      imagePreview.src = imgDataUrl;
 
-    const img = await faceapi.bufferToImage(file);
-    const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
+      // Buat elemen gambar baru untuk dianalisis oleh AI
+      const img = new Image();
+      img.src = imgDataUrl;
+      img.onload = async () => {
+        try {
+          const detection = await faceapi.detectSingleFace(img).withFaceLandmarks().withFaceDescriptor();
 
-    if (!detection) {
-      showAlert("danger", "Wajah tidak terdeteksi pada foto! Harap ambil foto ulang dengan posisi wajah jelas dan penerangan memadai.");
-      capturedDescriptor = null;
-      btnSubmit.disabled = false;
-      return;
-    }
+          if (!detection) {
+            showAlert("danger", "Wajah tidak terdeteksi! Pastikan foto diambil dari jarak dekat dengan posisi wajah terlihat jelas.");
+            capturedDescriptor = null;
+            btnSubmit.disabled = false;
+            return;
+          }
 
-    capturedDescriptor = Array.from(detection.descriptor);
-    showAlert("success", "Wajah berhasil terdeteksi! Silakan lengkapi form dan klik 'Proses Pendaftaran Wajah'.");
-    btnSubmit.disabled = false;
+          capturedDescriptor = Array.from(detection.descriptor);
+          showAlert("success", "✅ Wajah berhasil terdeteksi! Silakan isi form lalu klik tombol Simpan.");
+          btnSubmit.disabled = false;
+        } catch (err) {
+          showAlert("danger", "Gagal mengekstrak data wajah: " + err.message);
+          btnSubmit.disabled = false;
+        }
+      };
+    };
+
+    reader.readAsDataURL(file);
   }
 
-  // 4. Proses Submit Form Pendaftaran
+  // 3. Mengirimkan Data Pendaftaran ke Google Apps Script
   document.getElementById("enrollForm").addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    btnSubmit.disabled = true;
-    btnSubmit.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Memproses...`;
-
-    // Jika belum ambil foto native, coba ekstrak dari live video stream
-    if (!capturedDescriptor && video.style.display !== "none") {
-      const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-      if (detection) {
-        capturedDescriptor = Array.from(detection.descriptor);
-      }
-    }
-
     if (!capturedDescriptor) {
-      showAlert("warning", "Silakan ambil foto wajah siswa terlebih dahulu menggunakan tombol hijau di atas!");
-      resetButton();
+      showAlert("warning", "Harap ambil foto wajah siswa terlebih dahulu menggunakan tombol hijau di atas!");
       return;
     }
+
+    btnSubmit.disabled = true;
+    btnSubmit.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Menyimpan Data...`;
 
     const payload = {
       action: "enroll",
@@ -200,9 +184,10 @@
       const result = await response.json();
 
       if (result.status === "success") {
-        showAlert("success", result.message);
+        showAlert("success", "🎉 " + result.message);
         document.getElementById("enrollForm").reset();
         capturedDescriptor = null;
+        imagePreview.src = "data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%22300%22%20height%3D%22200%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Crect%20width%3D%22100%25%22%20height%3D%22100%25%22%20fill%3D%22%23212529%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20fill%3D%22%23fff%22%20text-anchor%3D%22middle%22%3EFoto%20Siswa%20Akan%20Tampil%20Di%20Sini%3C%2Ftext%3E%3C%2Fsvg%3E";
       } else {
         showAlert("danger", "Gagal mendaftar: " + result.message);
       }
@@ -215,13 +200,13 @@
 
   function showAlert(type, message) {
     alertBox.className = `alert alert-${type}`;
-    alertBox.innerText = message;
+    alertBox.innerHTML = message;
     alertBox.style.display = "block";
   }
 
   function resetButton() {
     btnSubmit.disabled = false;
-    btnSubmit.innerText = "Proses Pendaftaran Wajah";
+    btnSubmit.innerText = "Simpan & Daftarkan Wajah";
   }
 
   window.addEventListener("DOMContentLoaded", loadModels);
